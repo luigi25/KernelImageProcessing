@@ -7,30 +7,30 @@
 #include <opencv2/highgui.hpp>
 #include <iostream>
 #include "../PaddedImage/PaddedImage.h"
-#include "../Kernel/Kernel.h"
+#include "../Kernel/AbstractKernel.h"
 
 using namespace cv;
 using namespace std;
 
-double sequentialTest(int numExecutions, const PaddedImage& image, Kernel& kernel){
+double sequentialTest(int numExecutions, const PaddedImage& image, AbstractKernel& kernel){
     double meanExecutionsTime = 0;
     int** kernelMatrix = kernel.getKernel();
     int scalarValue = kernel.getScalarValue();
-    int kernelSize = kernel.getKernelSize();
+    int kernelDimension = kernel.getKernelDimension();
     int padding = image.getPadding();
     int width = image.getWidth();
     int height = image.getHeight();
     vector<vector<vector<float>>> paddedImage = image.getPaddedImage();
     for (int execution = 0; execution < numExecutions; execution++) {
-        vector<vector<vector<float>>> blurredImage = PaddedImage(image).getPaddedImage();
+        vector<vector<vector<float>>> blurredImage = paddedImage;
         auto start = chrono::system_clock::now();
         for (int i = padding; i < height - padding; i++) {
             for (int j = padding; j < width - padding; j++) {
                 float newValueR = 0;
                 float newValueG = 0;
                 float newValueB = 0;
-                for (int k = -padding; k < kernelSize - padding; k++) {
-                    for (int l = -padding; l < kernelSize - padding; l++) {
+                for (int k = -padding; k < kernelDimension - padding; k++) {
+                    for (int l = -padding; l < kernelDimension - padding; l++) {
                         newValueR += paddedImage[i + k][j + l][0] * kernelMatrix[k + padding][l + padding];
                         newValueG += paddedImage[i + k][j + l][1] * kernelMatrix[k + padding][l + padding];
                         newValueB += paddedImage[i + k][j + l][2] * kernelMatrix[k + padding][l + padding];
@@ -46,7 +46,7 @@ double sequentialTest(int numExecutions, const PaddedImage& image, Kernel& kerne
         auto executionTimeMilliseconds = chrono::duration_cast<chrono::milliseconds>(executionTime);
         meanExecutionsTime += (double) executionTimeMilliseconds.count();
         blurredImage.clear(); //TODO free memory
-//        cout << "Iteration: " << execution << endl;
+        cout << "Iteration: " << execution << endl;
 
     }
 //    return blurredImage;

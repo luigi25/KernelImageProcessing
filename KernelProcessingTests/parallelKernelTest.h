@@ -6,7 +6,7 @@
 #include <opencv2/highgui.hpp>
 #include <iostream>
 #include "../PaddedImage/PaddedImage.h"
-#include "../Kernel/Kernel.h"
+#include "../Kernel/AbstractKernel.h"
 #include <pthread.h>
 #include <vector>
 #include <chrono>
@@ -21,14 +21,11 @@ struct kernelProcessing_args{
     vector<vector<vector<float>>>* blurredImage;
     int** kernelMatrix;
     int width;
-    int height;
     int padding;
-    int kernelSize;
+    int kernelDimension;
     int scalarValue;
     int startIndex_i;
     int endIndex_i;
-    int startIndex_j;
-    int endIndex_j;
 };
 
 void* applyKernel(void *args) {
@@ -38,8 +35,8 @@ void* applyKernel(void *args) {
             float newValueR = 0;
             float newValueG = 0;
             float newValueB = 0;
-            for (int k = -arguments->padding; k < arguments->kernelSize - arguments->padding; k++) {
-                for (int l = -arguments->padding; l < arguments->kernelSize - arguments->padding; l++) {
+            for (int k = -arguments->padding; k < arguments->kernelDimension - arguments->padding; k++) {
+                for (int l = -arguments->padding; l < arguments->kernelDimension - arguments->padding; l++) {
                     newValueR += arguments->paddedImage->at(i + k).at(j + l).at(0) * arguments->kernelMatrix[k + arguments->padding][l + arguments->padding];
                     newValueG += arguments->paddedImage->at(i + k).at(j + l).at(1) * arguments->kernelMatrix[k + arguments->padding][l + arguments->padding];
                     newValueB += arguments->paddedImage->at(i + k).at(j + l).at(2) * arguments->kernelMatrix[k + arguments->padding][l + arguments->padding];
@@ -51,10 +48,10 @@ void* applyKernel(void *args) {
         }
     }
 }
-vector<double> parallelPThreadTest(int numExecutions, int numThreads, const PaddedImage& image, Kernel& kernel){
+vector<double> parallelPThreadTest(int numExecutions, int numThreads, const PaddedImage& image, AbstractKernel& kernel){
     int** kernelMatrix = kernel.getKernel();
     int scalarValue = kernel.getScalarValue();
-    int kernelSize = kernel.getKernelSize();
+    int kernelDimension = kernel.getKernelDimension();
     int padding = image.getPadding();
     int width = image.getWidth();
     int height = image.getHeight();
@@ -73,9 +70,8 @@ vector<double> parallelPThreadTest(int numExecutions, int numThreads, const Padd
                 arguments[t].blurredImage = &blurredImage;
                 arguments[t].kernelMatrix = kernelMatrix;
                 arguments[t].width = width;
-                arguments[t].height = height;
                 arguments[t].padding = padding;
-                arguments[t].kernelSize = kernelSize;
+                arguments[t].kernelDimension = kernelDimension;
                 arguments[t].scalarValue = scalarValue;
                 arguments[t].startIndex_i = chuckSizeHeight * t + padding;
                 arguments[t].endIndex_i = chuckSizeHeight * (t + 1) - 1 + padding;
@@ -86,9 +82,8 @@ vector<double> parallelPThreadTest(int numExecutions, int numThreads, const Padd
             arguments[nThread - 1].blurredImage = &blurredImage;
             arguments[nThread - 1].kernelMatrix = kernelMatrix;
             arguments[nThread - 1].width = width;
-            arguments[nThread - 1].height = height;
             arguments[nThread - 1].padding = padding;
-            arguments[nThread - 1].kernelSize = kernelSize;
+            arguments[nThread - 1].kernelDimension = kernelDimension;
             arguments[nThread - 1].scalarValue = scalarValue;
             arguments[nThread - 1].startIndex_i = chuckSizeHeight * (nThread - 1) + padding;
             arguments[nThread - 1].endIndex_i = height - padding - 1;
@@ -103,10 +98,10 @@ vector<double> parallelPThreadTest(int numExecutions, int numThreads, const Padd
             executionTime = chrono::system_clock::now() - start;
             auto executionTimeMilliseconds = chrono::duration_cast<chrono::milliseconds>(executionTime);
             meanExecutionsTime += (double) executionTimeMilliseconds.count();
-//            Mat reconstructed_image1 = imageReconstruction(blurredImage, width, height, padding);
-//            imwrite("../blurred.jpeg", reconstructed_image1);
-//            Mat reconstructed_image2 = imageReconstruction(paddedImage, width, height, padding);
-//            imwrite("../original.jpeg", reconstructed_image2);
+            Mat reconstructed_image1 = imageReconstruction(blurredImage, width, height, padding);
+            imwrite("../blurred.jpeg", reconstructed_image1);
+            Mat reconstructed_image2 = imageReconstruction(paddedImage, width, height, padding);
+            imwrite("../original.jpeg", reconstructed_image2);
             blurredImage.clear();
             threads.clear();
             arguments.clear();
