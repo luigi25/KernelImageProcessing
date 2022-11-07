@@ -14,17 +14,17 @@ int main(){
 //    GaussianKernel3x3 gaussianKernel3x3 = GaussianKernel3x3();
     GaussianKernel5x5 gaussianKernel5x5 = GaussianKernel5x5();
     PaddedImage paddedImage = PaddedImage("../images/image.jpg", gaussianKernel5x5.getPadding());
-    int numExecutions = 10;
+    int numExecutions = 100;
+    int numThreads = 10;
 
-//    cout << "Sequential Test" << endl;
-//    double meanExecTimeSequentialTest = sequentialTest(numExecutions, paddedImage, gaussianKernel5x5);
-//    cout << "Mean Sequential execution time: " << floor(meanExecTimeSequentialTest * 100.) / 100. << " milliseconds\n" << endl;
+    cout << "Sequential Test" << endl;
+    double meanExecTimeSequentialTest = sequentialTest(numExecutions, paddedImage, gaussianKernel5x5);
+    cout << "Mean Sequential execution time: " << floor(meanExecTimeSequentialTest * 100.) / 100. << " milliseconds\n" << endl;
 
     cout << "PThread Test" << endl;
-    int numThreads = 10;
     vector<double> meanExecTimePThreadTest = parallelPThreadTest(numExecutions, numThreads, paddedImage, gaussianKernel5x5);
-    for(int nThread = 1; nThread <= numThreads; nThread++) {
-        cout << "Mean PThread execution time with " << nThread << " thread: " << floor(meanExecTimePThreadTest[nThread - 1] * 100.) / 100. << " milliseconds" << endl;
+    for(int nThread = 2; nThread <= numThreads; nThread++) {
+        cout << "Mean PThread execution time with " << nThread << " thread: " << floor(meanExecTimePThreadTest[nThread - 2] * 100.) / 100. << " milliseconds" << endl;
     }
 
 

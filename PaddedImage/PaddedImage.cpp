@@ -12,9 +12,9 @@ PaddedImage::PaddedImage(const String& path, int _padding) {
 vector<vector<vector<float>>> PaddedImage::createPaddedImage() {
     vector<vector<vector<float>>> imageWithPadding;
     imageWithPadding.resize(getHeight());
-    for (int i = 0; i < getHeight(); ++i) {
+    for (int i = 0; i < getHeight(); i++) {
         imageWithPadding[i].resize(getWidth());
-        for (int j = 0; j < getWidth(); ++j) {
+        for (int j = 0; j < getWidth(); j++) {
             imageWithPadding[i][j].resize(getNumChannels());
         }
     }

@@ -19,11 +19,11 @@ using namespace std;
 struct kernelProcessing_args{
     vector<vector<vector<float>>>* paddedImage;
     vector<vector<vector<float>>>* blurredImage;
-    int** kernelMatrix;
+    float** kernelMatrix;
     int width;
     int padding;
     int kernelDimension;
-    int scalarValue;
+    float scalarValue;
     int startIndex_i;
     int endIndex_i;
 };
@@ -37,20 +37,21 @@ void* applyKernel(void *args) {
             float newValueB = 0;
             for (int k = -arguments->padding; k < arguments->kernelDimension - arguments->padding; k++) {
                 for (int l = -arguments->padding; l < arguments->kernelDimension - arguments->padding; l++) {
-                    newValueR += arguments->paddedImage->at(i + k).at(j + l).at(0) * arguments->kernelMatrix[k + arguments->padding][l + arguments->padding];
-                    newValueG += arguments->paddedImage->at(i + k).at(j + l).at(1) * arguments->kernelMatrix[k + arguments->padding][l + arguments->padding];
-                    newValueB += arguments->paddedImage->at(i + k).at(j + l).at(2) * arguments->kernelMatrix[k + arguments->padding][l + arguments->padding];
+                    newValueR += (*arguments->paddedImage)[i + k][j + l][0] * arguments->kernelMatrix[k + arguments->padding][l + arguments->padding];
+                    newValueG += (*arguments->paddedImage)[i + k][j + l][1] * arguments->kernelMatrix[k + arguments->padding][l + arguments->padding];
+                    newValueB += (*arguments->paddedImage)[i + k][j + l][2] * arguments->kernelMatrix[k + arguments->padding][l + arguments->padding];
                 }
             }
-            arguments->blurredImage->at(i).at(j).at(0) = newValueR / arguments->scalarValue;
-            arguments->blurredImage->at(i).at(j).at(1) = newValueG / arguments->scalarValue;
-            arguments->blurredImage->at(i).at(j).at(2) = newValueB / arguments->scalarValue;
+            (*arguments->blurredImage)[i][j][0] = newValueR / arguments->scalarValue;
+            (*arguments->blurredImage)[i][j][1] = newValueG / arguments->scalarValue;
+            (*arguments->blurredImage)[i][j][2] = newValueB / arguments->scalarValue;
         }
     }
+    return (void*)("Done!");
 }
 vector<double> parallelPThreadTest(int numExecutions, int numThreads, const PaddedImage& image, AbstractKernel& kernel){
-    int** kernelMatrix = kernel.getKernel();
-    int scalarValue = kernel.getScalarValue();
+    float** kernelMatrix = kernel.getKernel();
+    float scalarValue = kernel.getScalarValue();
     int kernelDimension = kernel.getKernelDimension();
     int padding = image.getPadding();
     int width = image.getWidth();
@@ -59,12 +60,13 @@ vector<double> parallelPThreadTest(int numExecutions, int numThreads, const Padd
     vector<double> meanExecutionsTimeVec;
     for(int nThread = 2; nThread <= numThreads; nThread++) {
         double meanExecutionsTime = 0;
+        cout << "Thread number: " << nThread << endl;
         for (int execution = 0; execution < numExecutions; execution++) {
-            vector<vector<vector<float>>> blurredImage = paddedImage;
+            vector<vector<vector<float>>> blurredImage = image.getPaddedImage();
             vector<pthread_t> threads(nThread);
             vector<kernelProcessing_args> arguments(nThread);
-            auto start = chrono::system_clock::now();
             int chuckSizeHeight = floor((height - (padding * 2)) / nThread);
+            auto start = chrono::system_clock::now();
             for (int t = 0; t < nThread - 1; t++) {
                 arguments[t].paddedImage = &paddedImage;
                 arguments[t].blurredImage = &blurredImage;
@@ -75,7 +77,7 @@ vector<double> parallelPThreadTest(int numExecutions, int numThreads, const Padd
                 arguments[t].scalarValue = scalarValue;
                 arguments[t].startIndex_i = chuckSizeHeight * t + padding;
                 arguments[t].endIndex_i = chuckSizeHeight * (t + 1) - 1 + padding;
-                if (pthread_create(&threads[t], NULL, applyKernel, (void*)&arguments[t]) != 0)
+                if (pthread_create(&threads[t], NULL, applyKernel, (void *) &arguments[t]) != 0)
                     cout << "Error" << endl;
             }
             arguments[nThread - 1].paddedImage = &paddedImage;
@@ -87,26 +89,26 @@ vector<double> parallelPThreadTest(int numExecutions, int numThreads, const Padd
             arguments[nThread - 1].scalarValue = scalarValue;
             arguments[nThread - 1].startIndex_i = chuckSizeHeight * (nThread - 1) + padding;
             arguments[nThread - 1].endIndex_i = height - padding - 1;
-            if (pthread_create(&threads[nThread - 1], NULL, applyKernel, (void*)&arguments[nThread - 1]) != 0)
+            if (pthread_create(&threads[nThread - 1], NULL, applyKernel, (void *) &arguments[nThread - 1]) != 0)
                 cout << "Error" << endl;
 
-            for (auto thread:threads) {
+            for (auto thread: threads) {
                 pthread_join(thread, NULL);
+//                if (pthread_join(thread, NULL)){
+//                    printf("An error occurred while joining thread.\n");}
             }
-
             chrono::duration<double> executionTime{};
             executionTime = chrono::system_clock::now() - start;
             auto executionTimeMilliseconds = chrono::duration_cast<chrono::milliseconds>(executionTime);
             meanExecutionsTime += (double) executionTimeMilliseconds.count();
-            Mat reconstructed_image1 = imageReconstruction(blurredImage, width, height, padding);
-            imwrite("../blurred.jpeg", reconstructed_image1);
-            Mat reconstructed_image2 = imageReconstruction(paddedImage, width, height, padding);
-            imwrite("../original.jpeg", reconstructed_image2);
+//            Mat reconstructed_image1 = imageReconstruction(blurredImage, width, height, padding);
+//            imwrite("../blurred.jpeg", reconstructed_image1);
+//            Mat reconstructed_image2 = imageReconstruction(paddedImage, width, height, padding);
+//            imwrite("../original.jpeg", reconstructed_image2);
             blurredImage.clear();
             threads.clear();
             arguments.clear();
         }
-        cout << "Iteration: " << nThread << endl;
         meanExecutionsTimeVec.push_back(meanExecutionsTime / numExecutions);
     }
     return meanExecutionsTimeVec;

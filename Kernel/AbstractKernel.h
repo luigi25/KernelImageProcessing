@@ -9,14 +9,14 @@ class AbstractKernel {
 protected:
     int kernelDimension = 0;
     int kernelSize = 0;
-    int scalarValue = 0;
+    float scalarValue = 0;
     int padding = 0;
-    int** kernel{};
+    float** kernel{};
 
 public:
-    virtual int** getKernel() = 0;
+    virtual float** getKernel() = 0;
     virtual int getKernelSize() = 0;
-    virtual int getScalarValue() = 0;
+    virtual float getScalarValue() = 0;
     virtual int getPadding() = 0;
     virtual int getKernelDimension() = 0;
 };

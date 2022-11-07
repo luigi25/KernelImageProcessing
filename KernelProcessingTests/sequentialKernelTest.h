@@ -14,8 +14,8 @@ using namespace std;
 
 double sequentialTest(int numExecutions, const PaddedImage& image, AbstractKernel& kernel){
     double meanExecutionsTime = 0;
-    int** kernelMatrix = kernel.getKernel();
-    int scalarValue = kernel.getScalarValue();
+    float** kernelMatrix = kernel.getKernel();
+    float scalarValue = kernel.getScalarValue();
     int kernelDimension = kernel.getKernelDimension();
     int padding = image.getPadding();
     int width = image.getWidth();
@@ -45,11 +45,8 @@ double sequentialTest(int numExecutions, const PaddedImage& image, AbstractKerne
         executionTime = chrono::system_clock::now() - start;
         auto executionTimeMilliseconds = chrono::duration_cast<chrono::milliseconds>(executionTime);
         meanExecutionsTime += (double) executionTimeMilliseconds.count();
-        blurredImage.clear(); //TODO free memory
-        cout << "Iteration: " << execution << endl;
-
+        blurredImage.clear();
     }
-//    return blurredImage;
     return meanExecutionsTime / numExecutions;
 }
 #endif //KERNELIMAGEPROCESSING_SEQUENTIALKERNELTEST_H
