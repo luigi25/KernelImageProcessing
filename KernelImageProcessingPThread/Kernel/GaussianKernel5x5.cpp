@@ -10,11 +10,6 @@ GaussianKernel5x5::GaussianKernel5x5() {
     kernel[4] = new float[kernelDimension] {1, 4, 6, 4, 1};
     kernelSize = 25;
     scalarValue = 256;
-    padding = 2;
-}
-
-int GaussianKernel5x5::getPadding() {
-    return padding;
 }
 
 float** GaussianKernel5x5::getKernel() {

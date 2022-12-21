@@ -5,23 +5,23 @@ PaddedImage::PaddedImage(const String& path, int _padding) {
     padding = _padding;
     width = originalImage.cols + padding * 2;
     height = originalImage.rows + padding * 2;
-    num_channels = originalImage.channels();
+    numChannels = originalImage.channels();
     paddedImage = createPaddedImage();
 }
 
 vector<vector<vector<float>>> PaddedImage::createPaddedImage() {
     vector<vector<vector<float>>> imageWithPadding;
-    imageWithPadding.resize(getHeight());
-    for (int i = 0; i < getHeight(); i++) {
-        imageWithPadding[i].resize(getWidth());
-        for (int j = 0; j < getWidth(); j++) {
-            imageWithPadding[i][j].resize(getNumChannels());
+    imageWithPadding.resize(height);
+    for (int i = 0; i < height; i++) {
+        imageWithPadding[i].resize(width);
+        for (int j = 0; j < width; j++) {
+            imageWithPadding[i][j].resize(numChannels);
         }
     }
 
     // scroll by rows
-    for (int i = 0; i < getHeight(); i++) {
-        for (int j = 0; j < getWidth(); j++) {
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
             int index_i = i - padding;
             if (index_i < 0) {
                 index_i = 0;
@@ -53,7 +53,7 @@ int PaddedImage::getHeight() const {
 }
 
 int PaddedImage::getNumChannels() const {
-    return num_channels;
+    return numChannels;
 }
 
 int PaddedImage::getPadding() const {

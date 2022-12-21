@@ -10,14 +10,12 @@ protected:
     int kernelDimension = 0;
     int kernelSize = 0;
     float scalarValue = 0;
-    int padding = 0;
     float** kernel{};
 
 public:
     virtual float** getKernel() = 0;
     virtual int getKernelSize() = 0;
     virtual float getScalarValue() = 0;
-    virtual int getPadding() = 0;
     virtual int getKernelDimension() = 0;
 };
 

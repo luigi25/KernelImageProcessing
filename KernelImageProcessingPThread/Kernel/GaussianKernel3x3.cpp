@@ -8,11 +8,6 @@ GaussianKernel3x3::GaussianKernel3x3() {
     kernel[2] = new float[kernelDimension] {1, 2, 1};
     kernelSize = 9;
     scalarValue = 16;
-    padding = 1;
-}
-
-int GaussianKernel3x3::getPadding() {
-    return padding;
 }
 
 float** GaussianKernel3x3::getKernel() {

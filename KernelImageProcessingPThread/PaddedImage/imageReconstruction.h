@@ -7,7 +7,7 @@ Mat imageReconstruction(vector<vector<vector<float>>> paddedImg, int width, int 
     for(int i = padding; i < height - padding; i++) {
         for (int j = padding; j < width - padding; j++) {
             Vec3b pixel = Vec3b((unsigned char)paddedImg[i][j][2], (unsigned char)paddedImg[i][j][1], (unsigned char)paddedImg[i][j][0]);
-            reconstructedImage.at<Vec3b>(i - padding,j - padding) = pixel;
+            reconstructedImage.at<Vec3b>(i - padding, j - padding) = pixel;
         }
     }
     return reconstructedImage;

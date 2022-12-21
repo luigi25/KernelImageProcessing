@@ -6,7 +6,6 @@
 class GaussianKernel3x3 : public AbstractKernel {
 public:
     explicit GaussianKernel3x3();
-    int getPadding() override;
     float** getKernel() override;
     int getKernelSize() override;
     float getScalarValue() override;

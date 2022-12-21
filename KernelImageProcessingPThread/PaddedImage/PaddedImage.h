@@ -11,7 +11,7 @@ using namespace std;
 
 class PaddedImage {
 private:
-    int width, height, num_channels, padding;
+    int width, height, numChannels, padding;
     vector<vector<vector<float>>> paddedImage;
     Mat originalImage;
 

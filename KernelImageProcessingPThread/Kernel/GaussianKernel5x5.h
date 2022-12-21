@@ -6,7 +6,6 @@
 class GaussianKernel5x5 : public AbstractKernel {
 public:
     explicit GaussianKernel5x5();
-    int getPadding() override;
     float** getKernel() override;
     int getKernelSize() override;
     float getScalarValue() override;
