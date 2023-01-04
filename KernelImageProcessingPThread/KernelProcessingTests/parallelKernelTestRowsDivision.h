@@ -49,6 +49,7 @@ void* applyKernelRows(void *args) {
     }
     return (void*)("Done!");
 }
+
 vector<double> parallelPThreadTestRowsDivision(int numExecutions, int numThreads, const PaddedImage& image, AbstractKernel& kernel){
     float** kernelMatrix = kernel.getKernel();
     float scalarValue = kernel.getScalarValue();
@@ -60,12 +61,12 @@ vector<double> parallelPThreadTestRowsDivision(int numExecutions, int numThreads
     vector<double> meanExecutionsTimeVec;
     for(int nThread = 2; nThread <= numThreads; nThread+=2) {
         double meanExecutionsTime = 0;
-        cout << "Thread number: " << nThread << endl;
+//        cout << "Thread number: " << nThread << endl;
         for (int execution = 0; execution < numExecutions; execution++) {
             vector<vector<vector<float>>> blurredImage = image.getPaddedImage();
             vector<pthread_t> threads(nThread);
             vector<kernelProcessingRows_args> arguments(nThread);
-            int chuckSizeHeight = floor((height - (padding * 2)) / nThread);
+            int chunkSizeHeight = floor((height - (padding * 2)) / nThread);
             auto start = chrono::system_clock::now();
             for (int t = 0; t < nThread - 1; t++) {
                 arguments[t].paddedImage = &paddedImage;
@@ -75,8 +76,8 @@ vector<double> parallelPThreadTestRowsDivision(int numExecutions, int numThreads
                 arguments[t].padding = padding;
                 arguments[t].kernelDimension = kernelDimension;
                 arguments[t].scalarValue = scalarValue;
-                arguments[t].startIndex_i = chuckSizeHeight * t + padding;
-                arguments[t].endIndex_i = chuckSizeHeight * (t + 1) - 1 + padding;
+                arguments[t].startIndex_i = chunkSizeHeight * t + padding;
+                arguments[t].endIndex_i = chunkSizeHeight * (t + 1) - 1 + padding;
                 if (pthread_create(&threads[t], NULL, applyKernelRows, (void *) &arguments[t]) != 0)
                     cout << "Error" << endl;
             }
@@ -87,7 +88,7 @@ vector<double> parallelPThreadTestRowsDivision(int numExecutions, int numThreads
             arguments[nThread - 1].padding = padding;
             arguments[nThread - 1].kernelDimension = kernelDimension;
             arguments[nThread - 1].scalarValue = scalarValue;
-            arguments[nThread - 1].startIndex_i = chuckSizeHeight * (nThread - 1) + padding;
+            arguments[nThread - 1].startIndex_i = chunkSizeHeight * (nThread - 1) + padding;
             arguments[nThread - 1].endIndex_i = height - padding - 1;
             if (pthread_create(&threads[nThread - 1], NULL, applyKernelRows, (void *) &arguments[nThread - 1]) != 0)
                 cout << "Error" << endl;

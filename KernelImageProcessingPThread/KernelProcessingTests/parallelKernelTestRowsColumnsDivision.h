@@ -33,7 +33,7 @@ StartEndIndices createStartEndIndices(int nThread, int width, int height, int pa
         columns = nThread/rows;
     }
     else {
-        columns = nThread/4;
+        columns = nThread / 4;
         rows = nThread/columns;
     }
 
@@ -66,7 +66,6 @@ struct kernelProcessing_args{
     vector<vector<vector<float>>>* paddedImage;
     vector<vector<vector<float>>>* blurredImage;
     float** kernelMatrix;
-    int width;
     int padding;
     int kernelDimension;
     float scalarValue;
@@ -119,7 +118,6 @@ vector<double> parallelPThreadTestRowsColumnsDivision(int numExecutions, int num
                 arguments[t].paddedImage = &paddedImage;
                 arguments[t].blurredImage = &blurredImage;
                 arguments[t].kernelMatrix = kernelMatrix;
-                arguments[t].width = width;
                 arguments[t].padding = padding;
                 arguments[t].kernelDimension = kernelDimension;
                 arguments[t].scalarValue = scalarValue;

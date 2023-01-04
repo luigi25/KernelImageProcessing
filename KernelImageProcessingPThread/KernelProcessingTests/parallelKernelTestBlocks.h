@@ -87,16 +87,16 @@ struct kernelProcessingBlocks_args{
     int padding;
     int kernelDimension;
     float scalarValue;
-    StartEndBlocksIndices threadBlocksindices;
+    StartEndBlocksIndices threadBlocksIndices;
 };
 
 void* applyKernelBlocks(void *args) {
     auto *arguments = (kernelProcessingBlocks_args*) args;
-    int numbBlocks = (int)arguments->threadBlocksindices.startIndex_i.size();
-    StartEndBlocksIndices threadBlocks = arguments->threadBlocksindices;
+    int numbBlocks = (int)arguments->threadBlocksIndices.startIndex_i.size();
+    StartEndBlocksIndices threadBlocks = arguments->threadBlocksIndices;
     for (int b = 0; b < numbBlocks; b++){
-        for (int i = arguments->threadBlocksindices.startIndex_i[b]; i <= arguments->threadBlocksindices.endIndex_i[b]; i++) {
-            for (int j = arguments->threadBlocksindices.startIndex_j[b]; j <= arguments->threadBlocksindices.endIndex_j[b]; j++) {
+        for (int i = arguments->threadBlocksIndices.startIndex_i[b]; i <= arguments->threadBlocksIndices.endIndex_i[b]; i++) {
+            for (int j = arguments->threadBlocksIndices.startIndex_j[b]; j <= arguments->threadBlocksIndices.endIndex_j[b]; j++) {
                 float newValueR = 0;
                 float newValueG = 0;
                 float newValueB = 0;
@@ -140,7 +140,7 @@ vector<double> parallelPThreadTestBlocks(int numExecutions, int numThreads, cons
                 arguments[t].padding = padding;
                 arguments[t].kernelDimension = kernelDimension;
                 arguments[t].scalarValue = scalarValue;
-                arguments[t].threadBlocksindices = threadBlocksindices[t];
+                arguments[t].threadBlocksIndices = threadBlocksindices[t];
                 if (pthread_create(&threads[t], NULL, applyKernelBlocks, (void *) &arguments[t]) != 0)
                     cout << "Error" << endl;
             }
