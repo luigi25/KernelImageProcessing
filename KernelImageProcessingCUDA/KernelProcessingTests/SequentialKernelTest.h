@@ -4,7 +4,10 @@
 #include "../PaddedImage/imageReconstruction.h"
 #include "../Kernel/AbstractKernel.h"
 
-void sequential_convolution_3D(float* flatPaddedImage, int originalWidth, int originalHeight, int numChannels, int padding, float* flatBlurredImage, float* gaussianKernel, int kernelDim, float scalarValue) {
+void sequential_kernel_convolution_3D(float* flatPaddedImage, int originalWidth, int originalHeight, int numChannels, int padding, float* flatBlurredImage, float* gaussianKernel, int kernelDim, float scalarValue) {
+    unsigned int maskIndex;
+    unsigned int pixelPos;
+    unsigned int outputPixelPos;
     for (int i = 0; i < (originalHeight + 2*padding); i++){
         for (int j = 0; j < (originalWidth + 2 * padding); j++){
             if (j > 1 && j < (originalWidth + padding) && i > 1 && i < (originalHeight + padding)) {
@@ -14,16 +17,19 @@ void sequential_convolution_3D(float* flatPaddedImage, int originalWidth, int or
                 // Get the of the surrounding box
                 for(int k = -padding; k < kernelDim - padding; k++) {
                     for(int l = -padding; l < kernelDim - padding; l++) {
-                        pixValR += flatPaddedImage[((i + k) * (originalWidth + 2*padding) * numChannels) + ((j + l) * numChannels)] * gaussianKernel[((l + padding) * kernelDim) + (l + padding)];
-                        pixValG += flatPaddedImage[((i + k) * (originalWidth + 2*padding) * numChannels) + ((j + l) * numChannels) + 1] * gaussianKernel[((l + padding) * kernelDim) + (l + padding)];
-                        pixValB += flatPaddedImage[((i + k) * (originalWidth + 2*padding) * numChannels) + ((j + l) * numChannels) + 2] * gaussianKernel[((l + padding) * kernelDim) + (l + padding)];
+                        pixelPos = ((i + k) * (originalWidth + 2*padding) * numChannels) + ((j + l) * numChannels);
+                        maskIndex = (k + padding) * kernelDim + (l + padding);
+                        pixValR += flatPaddedImage[pixelPos] * gaussianKernel[maskIndex];
+                        pixValG += flatPaddedImage[pixelPos + 1] * gaussianKernel[maskIndex];
+                        pixValB += flatPaddedImage[pixelPos + 2] * gaussianKernel[maskIndex];
 
                     }
                 }
                 // Write our new pixel value out
-                flatBlurredImage[(i * (originalWidth + 2*padding) * numChannels) + (j * numChannels)] = pixValR / scalarValue;
-                flatBlurredImage[(i * (originalWidth + 2*padding) * numChannels) + (j * numChannels) + 1] = pixValG / scalarValue;
-                flatBlurredImage[(i * (originalWidth + 2*padding) * numChannels) + (j * numChannels) + 2] = pixValB / scalarValue;
+                outputPixelPos = (i * (originalWidth + 2*padding) * numChannels) + (j * numChannels);
+                flatBlurredImage[outputPixelPos] = pixValR / scalarValue;
+                flatBlurredImage[outputPixelPos + 1] = pixValG / scalarValue;
+                flatBlurredImage[outputPixelPos + 2] = pixValB / scalarValue;
             }
         }
     }
@@ -43,8 +49,9 @@ double sequentialTest(int numExecutions, const FlatPaddedImage& paddedImage, Abs
     for (int execution = 0; execution < numExecutions; execution++) {
         float* flatBlurredImage = new float[paddedSize];
         auto start = std::chrono::system_clock::now();
-        sequential_convolution_3D(flatPaddedImage, originalWidth, originalHeight, numChannels, padding, flatBlurredImage,
-                                  gaussianKernel, kernelDim, scalarValue);
+        sequential_kernel_convolution_3D(flatPaddedImage, originalWidth, originalHeight, numChannels, padding,
+                                       flatBlurredImage,
+                                       gaussianKernel, kernelDim, scalarValue);
         chrono::duration<double> executionTime{};
         executionTime = chrono::system_clock::now() - start;
         auto executionTimeMicroseconds = chrono::duration_cast<chrono::microseconds>(executionTime);
