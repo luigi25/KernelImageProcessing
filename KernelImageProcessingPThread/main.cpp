@@ -17,7 +17,7 @@ int main(){
     GaussianKernel5x5 gaussianKernel = GaussianKernel5x5();
     int numExecutions = 10;
     int numThreads = 16;
-    vector<string> folder_names = { "720", "1080", "2K", "4K"};
+    vector<string> folder_names = {"480", "720", "1080", "2K", "4K"};
     for(const auto& name: folder_names){
         PaddedImage paddedImage = PaddedImage("../images/" + name + "/image.jpg", floor(gaussianKernel.getKernelDimension()/2));
         cout << "Sequential Test with " << name << "p" << endl;
