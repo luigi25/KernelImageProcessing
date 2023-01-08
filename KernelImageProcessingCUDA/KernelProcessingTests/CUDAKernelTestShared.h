@@ -182,7 +182,7 @@ vector<vector<double>> CUDASharedKernelTest(int numExecutions, int numBlocks, co
 //                Mat reconstructed_image = imageReconstruction(flatBlurredImage, originalWidth, originalHeight, numChannels, padding);
 //                imwrite("../results/blurred_" + to_string(blockDimension) + ".jpeg", reconstructed_image);
 
-                // Deallocate device memory
+                // deallocate device memory
                 checkCudaShared(cudaFree(flatPaddedImageDevice));
                 checkCudaShared(cudaFree(flatBlurredImageDevice));
 

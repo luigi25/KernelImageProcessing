@@ -99,8 +99,8 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
             meanCopyTime += (double)copyTime.count();
 
             dim3 DimGrid((int) ceil((float) (originalWidth + (padding * 2)) / (float) blockDimension),
-                         (int) ceil((float) (originalHeight + (padding * 2)) / (float) blockDimension), 1);
-            dim3 DimBlock(blockDimension, blockDimension, 1);
+                         (int) ceil((float) (originalHeight + (padding * 2)) / (float) blockDimension));
+            dim3 DimBlock(blockDimension, blockDimension);
 
             auto start = std::chrono::system_clock::now();
             constant_kernel_convolution_3D<<<DimGrid, DimBlock>>>(flatPaddedImage_device, originalWidth, originalHeight,
