@@ -17,46 +17,33 @@ using namespace cv;
 using namespace std;
 
 
-struct StartEndIndices{
+struct StartEndRowColIndices{
     vector<int> startIndex_i;
     vector<int> endIndex_i;
     vector<int> startIndex_j;
     vector<int> endIndex_j;
 };
 
-StartEndIndices createStartEndIndices(int nThread, int width, int height, int padding){
-    StartEndIndices rowsColsIndices;
-    int rows;
-    int columns;
-    if (nThread % 4 != 0 || nThread == 2 || nThread == 4){
-        rows = nThread / 2;
-        columns = nThread/rows;
-    }
-    else {
-        columns = nThread / 4;
-        rows = nThread/columns;
-    }
-
-    int chuckSizeHeight = floor((height - (padding * 2)) / rows);
-    int chuckSizeWidth = floor((width - (padding * 2)) / columns);
-    for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < columns; c++) {
-            if (r != rows - 1){
+StartEndRowColIndices createStartEndIndicesRowColForChunk(int width, int height, int padding, int chuckSizeWidth, int chuckSizeHeight, int threadRows, int threadColumns){
+    StartEndRowColIndices rowsColsIndices;
+    for (int r = 0; r < threadRows; r++) {
+        for (int c = 0; c < threadColumns; c++) {
+            if (r != threadRows - 1){
                 rowsColsIndices.startIndex_i.push_back(chuckSizeHeight * r + padding);
                 rowsColsIndices.endIndex_i.push_back(chuckSizeHeight * (r + 1) - 1 + padding);
             } else {
-                rowsColsIndices.startIndex_i.push_back(chuckSizeHeight * (rows - 1) + padding);
+                rowsColsIndices.startIndex_i.push_back(chuckSizeHeight * (threadRows - 1) + padding);
                 rowsColsIndices.endIndex_i.push_back(height - padding - 1);
             }
         }
     }
 
-    for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < columns - 1; c++) {
+    for (int r = 0; r < threadRows; r++) {
+        for (int c = 0; c < threadColumns - 1; c++) {
             rowsColsIndices.startIndex_j.push_back(chuckSizeWidth * c + padding);
             rowsColsIndices.endIndex_j.push_back(chuckSizeWidth * (c + 1) - 1 + padding);
         }
-        rowsColsIndices.startIndex_j.push_back(chuckSizeWidth * (columns - 1) + padding);
+        rowsColsIndices.startIndex_j.push_back(chuckSizeWidth * (threadColumns - 1) + padding);
         rowsColsIndices.endIndex_j.push_back(width - padding - 1);
     }
     return rowsColsIndices;
@@ -106,9 +93,22 @@ vector<double> parallelPThreadTestRowsColumnsDivision(int numExecutions, int num
     vector<vector<vector<float>>> paddedImage = image.getPaddedImage();
     vector<double> meanExecutionsTimeVec;
     for(int nThread = 2; nThread <= numThreads; nThread+=2) {
+//        cout << "Thread number: " << nThread << endl;
         double meanExecutionsTime = 0;
-        cout << "Thread number: " << nThread << endl;
-        StartEndIndices rowsColsIndices = createStartEndIndices(nThread, width, height, padding);
+        int threadRows;
+        int threadColumns;
+        if (nThread == 2 || nThread == 4 || nThread % 4 != 0) {
+            threadRows = nThread / 2;
+            threadColumns = nThread / threadRows;
+        }
+        else {
+            threadColumns = nThread / 4;
+            threadRows = nThread / threadColumns;
+        }
+
+        int chuckSizeHeight = floor((height - (padding * 2)) / threadRows);
+        int chuckSizeWidth = floor((width - (padding * 2)) / threadColumns);
+        StartEndRowColIndices rowsColsIndices = createStartEndIndicesRowColForChunk(width, height, padding, chuckSizeWidth, chuckSizeHeight, threadRows, threadColumns);
         for (int execution = 0; execution < numExecutions; execution++) {
             vector<vector<vector<float>>> blurredImage = image.getPaddedImage();
             vector<pthread_t> threads(nThread);
@@ -134,10 +134,10 @@ vector<double> parallelPThreadTestRowsColumnsDivision(int numExecutions, int num
             }
             chrono::duration<double> executionTime{};
             executionTime = chrono::system_clock::now() - start;
-            auto executionTimeMilliseconds = chrono::duration_cast<chrono::milliseconds>(executionTime);
-            meanExecutionsTime += (double) executionTimeMilliseconds.count();
-            Mat reconstructed_image1 = imageReconstruction(blurredImage, width, height, padding);
-            imwrite("../results/blurredRowsColumns_" + to_string(nThread) + ".jpeg", reconstructed_image1);
+            auto executionTimeMicroseconds = chrono::duration_cast<chrono::microseconds>(executionTime);
+            meanExecutionsTime += (double) executionTimeMicroseconds.count();
+//            Mat reconstructed_image1 = imageReconstruction(blurredImage, width, height, padding);
+//            imwrite("../results/blurredRowsColumns_" + to_string(nThread) + ".jpeg", reconstructed_image1);
             blurredImage.clear();
             threads.clear();
             arguments.clear();

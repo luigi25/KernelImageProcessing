@@ -98,10 +98,10 @@ vector<double> parallelPThreadTestRowsDivision(int numExecutions, int numThreads
             }
             chrono::duration<double> executionTime{};
             executionTime = chrono::system_clock::now() - start;
-            auto executionTimeMilliseconds = chrono::duration_cast<chrono::milliseconds>(executionTime);
-            meanExecutionsTime += (double) executionTimeMilliseconds.count();
-            Mat reconstructed_image1 = imageReconstruction(blurredImage, width, height, padding);
-            imwrite("../results/blurredRows_" + to_string(nThread) + ".jpeg", reconstructed_image1);
+            auto executionTimeMicroseconds = chrono::duration_cast<chrono::microseconds>(executionTime);
+            meanExecutionsTime += (double) executionTimeMicroseconds.count();
+//            Mat reconstructed_image1 = imageReconstruction(blurredImage, width, height, padding);
+//            imwrite("../results/blurredRows_" + to_string(nThread) + ".jpeg", reconstructed_image1);
             blurredImage.clear();
             threads.clear();
             arguments.clear();

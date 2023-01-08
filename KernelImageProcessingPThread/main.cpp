@@ -12,47 +12,63 @@ using namespace std;
 
 
 int main(){
-    // Read the images
+    int numExecutions = 100;
+    int numThreads = 16;
+    int index;
 //    GaussianKernel3x3 gaussianKernel = GaussianKernel3x3();
     GaussianKernel5x5 gaussianKernel = GaussianKernel5x5();
-    int numExecutions = 10;
-    int numThreads = 16;
+    int padding = floor(gaussianKernel.getKernelDimension()/2);
     vector<string> folder_names = {"480", "720", "1080", "2K", "4K"};
     for(const auto& name: folder_names){
-        PaddedImage paddedImage = PaddedImage("../images/" + name + "/image.jpg", floor(gaussianKernel.getKernelDimension()/2));
+        string path = "../images/" + name + "/image.jpg";
+        PaddedImage paddedImage = PaddedImage(path, padding);
         cout << "Sequential Test with " << name << "p" << endl;
         double meanExecTimeSequentialTest = sequentialTest(numExecutions, paddedImage, gaussianKernel);
-        cout << "Mean Sequential execution time: " << floor(meanExecTimeSequentialTest * 100.) / 100. << " milliseconds\n" << endl;
+        cout << "Mean Sequential execution time: " << floor(meanExecTimeSequentialTest * 100.) / 100. << " microseconds\n" << endl;
 
+        index = 0;
         cout << "PThread Test Rows Division with " << name << "p" << endl;
         vector<double> meanExecTimePThreadTestRows = parallelPThreadTestRowsDivision(numExecutions, numThreads, paddedImage, gaussianKernel);
         for(int nThread = 2; nThread <= numThreads; nThread+=2) {
-            cout << "Mean PThread Rows Division execution time with " << nThread << " thread: " << floor(meanExecTimePThreadTestRows[nThread/2 - 1] * 100.) / 100. << " milliseconds" << endl;
+            cout << "Mean PThread Rows Division execution time with " << nThread << " thread: " << floor(meanExecTimePThreadTestRows[index] * 100.) / 100. << " microseconds" << endl;
+            index++;
         }
 
+        index = 0;
         cout << "\nPThread Test Rows and Columns Division with " << name << "p" << endl;
         vector<double> meanExecTimePThreadTestRowsColumns = parallelPThreadTestRowsColumnsDivision(numExecutions, numThreads, paddedImage, gaussianKernel);
-        for(int nThread = 4; nThread <= numThreads; nThread+=2) {
-            cout << "Mean PThread Rows and Columns Division execution time with " << nThread << " thread: " << floor(meanExecTimePThreadTestRowsColumns[nThread/2 - 2] * 100.) / 100. << " milliseconds" << endl;
+        for(int nThread = 2; nThread <= numThreads; nThread+=2) {
+            cout << "Mean PThread Rows and Columns Division execution time with " << nThread << " thread: " << floor(meanExecTimePThreadTestRowsColumns[index] * 100.) / 100. << " microseconds" << endl;
+            index++;
         }
 
         cout << "\nPThread Test Blocks Division with " << name << "p" << endl;
-        int block_dims[] = {8, 16, 32, 64, 128, 256, 512};
+        int block_dims[] = {4, 8, 16, 32, 64, 128, 256};
         for(int block_dim : block_dims){
+            index = 0;
             cout << "Block size: " << block_dim << endl;
             vector<double> meanExecTimePThreadTestBlocks = parallelPThreadTestBlocks(numExecutions, numThreads, paddedImage, gaussianKernel, block_dim);
             for(int nThread = 2; nThread <= numThreads; nThread+=2) {
-                cout << "Mean PThread Blocks execution time with " << nThread << " thread: " << floor(meanExecTimePThreadTestBlocks[nThread/2 - 1] * 100.) / 100. << " milliseconds" << endl;
+                int width = paddedImage.getWidth();
+                int height = paddedImage.getHeight();
+                int blockRows;
+                int blockColumns;
+                if(height % block_dim == 0)
+                    blockRows = height / block_dim;
+                else
+                    blockRows = (int)(trunc(height / block_dim)) + 1;
+                if(width % block_dim == 0)
+                    blockColumns = width / block_dim;
+                else
+                    blockColumns = (int)(trunc(width / block_dim)) + 1;
+                int numBlocks = blockRows * blockColumns;
+                if (numBlocks >= nThread) {
+                    cout << "Mean PThread Blocks execution time with " << nThread << " thread: " << floor(meanExecTimePThreadTestBlocks[index] * 100.) / 100. << " microseconds" << endl;
+                    index++;
+                }
             }
             cout << "\n";
         }
     }
-
-//    Mat reconstructed_image1 = imageReconstruction(imgA1.getPaddedImage(), imgA1.getWidth(), imgA1.getHeight(), imgA1.getPadding());
-//    Mat reconstructed_image2 = imageReconstruction(imgA2.getPaddedImage(), imgA2.getWidth(), imgA2.getHeight(), imgA2.getPadding());
-//    namedWindow("Padded Image - padding 1", WINDOW_NORMAL);
-//    resizeWindow("Padded Image - padding 1", (int)(imgA1.getWidth()*0.35), (int)(imgA1.getHeight()*0.35));
-//    imshow("Padded Image - padding 1", reconstructed_image1);
-//    waitKey(0);
     return 0;
 }
