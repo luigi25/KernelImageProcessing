@@ -20,19 +20,22 @@ int main() {
     for(const auto& name: folder_names){
         string path = "../images/" + name + "/image.jpg";
         FlatPaddedImage flatPaddedImage = FlatPaddedImage(path, padding);
+
+        // sequential test
         cout << "-------------------------------------------------" << endl;
         cout << endl;
         cout << "Sequential Test with " << name << "p" << endl;
         double meanExecTimeSequentialTest = sequentialTest(numExecutions, flatPaddedImage, gaussianKernel);
         cout << "Mean Sequential execution time: " << floor(meanExecTimeSequentialTest * 100.) / 100. << " microseconds\n" << endl;
 
+        // CUDA Global Memory test
         index = 0;
         vector<vector<double>> timeCudaGlobalTest = CUDAGlobalKernelTest(numExecutions, numBlocks, flatPaddedImage, gaussianKernel);
         vector<double> meanExecTimeCudaGlobalTest = timeCudaGlobalTest[0];
         vector<double> meanCopyTimeCudaGlobalTest = timeCudaGlobalTest[1];
         cout << "-------------------------------------------------" << endl;
         cout << endl;
-        cout << "\nCUDA Test Global Kernel with " << name << "p" << endl;
+        cout << "\nCUDA Test Global Memory with " << name << "p" << endl;
         for (int blockDimension = 2; blockDimension <= numBlocks; blockDimension *= 2) {
             cout << "Mean CUDA execution time with " << blockDimension << " as blockDimension: " << floor(meanExecTimeCudaGlobalTest[index] * 100.) / 100. << " microseconds" << endl;
             cout << "Mean CUDA copy time with " << blockDimension << " as blockDimension: " << floor(meanCopyTimeCudaGlobalTest[index] * 100.) / 100. << " microseconds" << endl;
@@ -40,13 +43,14 @@ int main() {
             index++;
         }
 
+        // CUDA Constant Memory test
         index = 0;
         vector<vector<double>> timeCudaConstantTest = CUDAConstantKernelTest(numExecutions, numBlocks, flatPaddedImage, gaussianKernel);
         vector<double> meanExecTimeCudaConstantTest = timeCudaConstantTest[0];
         vector<double> meanCopyTimeCudaConstantTest = timeCudaConstantTest[1];
         cout << "-------------------------------------------------" << endl;
         cout << endl;
-        cout << "\nCUDA Test Constant Kernel with " << name << "p" << endl;
+        cout << "\nCUDA Test Constant Memory with " << name << "p" << endl;
         for (int blockDimension = 2; blockDimension <= numBlocks; blockDimension *= 2) {
             cout << "Mean CUDA execution time with " << blockDimension << " as blockDimension: " << floor(meanExecTimeCudaConstantTest[index] * 100.) / 100. << " microseconds" << endl;
             cout << "Mean CUDA copy time with " << blockDimension << " as blockDimension: " << floor(meanCopyTimeCudaConstantTest[index] * 100.) / 100. << " microseconds" << endl;
@@ -54,14 +58,16 @@ int main() {
             index++;
         }
 
+        // CUDA Shared Memory test
         index = 0;
         vector<vector<double>> timeCudaSharedTest = CUDASharedKernelTest(numExecutions, numBlocks, flatPaddedImage, gaussianKernel);
         vector<double> meanExecTimeCudaSharedTest = timeCudaSharedTest[0];
         vector<double> meanCopyTimeCudaSharedTest = timeCudaSharedTest[1];
         cout << "-------------------------------------------------" << endl;
         cout << endl;
-        cout << "\nCUDA Test Shared Kernel with " << name << "p" << endl;
+        cout << "\nCUDA Test Shared Memory with " << name << "p" << endl;
         for (int blockDimension = 2; blockDimension <= numBlocks; blockDimension *= 2) {
+            // check if blockDimension > 2 * padding in order to not have zero size block
             if (blockDimension > 2 * padding){
                 cout << "Mean CUDA execution time with " << blockDimension << " as blockDimension: " << floor(meanExecTimeCudaSharedTest[index] * 100.) / 100. << " microseconds" << endl;
                 cout << "Mean CUDA copy time with " << blockDimension << " as blockDimension: " << floor(meanCopyTimeCudaSharedTest[index] * 100.) / 100. << " microseconds" << endl;

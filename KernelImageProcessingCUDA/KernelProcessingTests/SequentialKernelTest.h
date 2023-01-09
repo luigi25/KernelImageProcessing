@@ -8,13 +8,14 @@ void sequential_kernel_convolution_3D(float* flatPaddedImage, int originalWidth,
     unsigned int maskIndex;
     unsigned int pixelPos;
     unsigned int outputPixelPos;
+    // apply filtering
     for (int i = 0; i < (originalHeight + 2*padding); i++){
         for (int j = 0; j < (originalWidth + 2 * padding); j++){
             if (j > 1 && j < (originalWidth + padding) && i > 1 && i < (originalHeight + padding)) {
                 float pixValR = 0;
                 float pixValG = 0;
                 float pixValB = 0;
-                // Get the of the surrounding box
+
                 for(int k = -padding; k < kernelDim - padding; k++) {
                     for(int l = -padding; l < kernelDim - padding; l++) {
                         pixelPos = ((i + k) * (originalWidth + 2*padding) * numChannels) + ((j + l) * numChannels);
@@ -25,7 +26,7 @@ void sequential_kernel_convolution_3D(float* flatPaddedImage, int originalWidth,
 
                     }
                 }
-                // Write our new pixel value out
+                // write new pixel value in output image
                 outputPixelPos = (i * (originalWidth + 2*padding) * numChannels) + (j * numChannels);
                 flatBlurredImage[outputPixelPos] = pixValR / scalarValue;
                 flatBlurredImage[outputPixelPos + 1] = pixValG / scalarValue;
@@ -47,6 +48,7 @@ double sequentialTest(int numExecutions, const FlatPaddedImage& paddedImage, Abs
     int kernelDim = kernel.getKernelDimension();
     float scalarValue = kernel.getScalarValue();
     for (int execution = 0; execution < numExecutions; execution++) {
+        // create output image
         float* flatBlurredImage = new float[paddedSize];
         auto start = std::chrono::system_clock::now();
         sequential_kernel_convolution_3D(flatPaddedImage, originalWidth, originalHeight, numChannels, padding,

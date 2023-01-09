@@ -12,49 +12,52 @@ cudaError_t checkCudaShared(cudaError_t result){
     return result;
 }
 
+// define gaussianKernel in constant memory
 const unsigned int max_kernel_size = 25;
 __device__ __constant__ float gaussianKernelDevice[max_kernel_size];
 
 __global__ void shared_kernel_convolution_3D(float* flatPaddedImage, int originalWidth, int originalHeight, int numChannels, int padding, float* flatBlurredImage, int kernelDim, float scalarValue) {
     extern __shared__ float shared_data[];
 
+    // define width, height for block and tile
     unsigned int blockWidth = blockDim.x - (2*padding);
     unsigned int blockHeight = blockDim.y - (2*padding);
     unsigned int tileWidth = blockDim.x;
     unsigned int tileHeight = blockDim.y;
 
+    // define rows, columns start/end indices for block and tile
     unsigned int blockStartCol = blockIdx.x * blockWidth + padding;
     unsigned int blockEndCol = blockStartCol + blockWidth;
     unsigned int blockStartRow = blockIdx.y * blockHeight + padding;
     unsigned int blockEndRow = blockStartRow + blockHeight;
-
     unsigned int tileStartCol = blockStartCol - padding;
     unsigned int tileEndCol = blockEndCol + padding;
-
     unsigned int tileStartRow = blockStartRow - padding;
     unsigned int tileEndRow = blockEndRow + padding;
 
 
     unsigned int tilePixelPosCol = threadIdx.x;
     unsigned int pixelPosCol = tileStartCol + tilePixelPosCol;
-
     unsigned int tilePixelPosRow;
     unsigned int pixelPosRow;
     unsigned int pixelPos;
     unsigned int tilePixelPos;
     unsigned int maskIndex;
     unsigned int outputPixelPos;
+
+    // number of blocks in tile
     unsigned int blocksInTile = (int)(ceil((float)tileHeight / (float)blockDim.y));
 
+    // load pixel values in shared memory
     for (int b = 0; b < blocksInTile; b++) {
         tilePixelPosRow = threadIdx.y + b * blockDim.y;
         pixelPosRow = tileStartRow + tilePixelPosRow;
-        // Check if the pixel is in the image
+        // check if the pixel is in the image
         if (pixelPosCol < tileEndCol && pixelPosCol < (originalWidth + 2*padding) &&
             pixelPosRow < tileEndRow && pixelPosRow < (originalHeight + 2*padding)) {
             pixelPos = (pixelPosRow * (originalWidth + 2*padding) * numChannels) + (pixelPosCol * numChannels);
             tilePixelPos = (tilePixelPosRow * tileWidth * numChannels) + (tilePixelPosCol * numChannels);
-            // Load the pixel in the shared memory
+            // load the pixel in the shared memory
             shared_data[tilePixelPos] = flatPaddedImage[pixelPos];
             shared_data[tilePixelPos + 1] = flatPaddedImage[pixelPos + 1];
             shared_data[tilePixelPos + 2] = flatPaddedImage[pixelPos + 2];
@@ -63,13 +66,14 @@ __global__ void shared_kernel_convolution_3D(float* flatPaddedImage, int origina
 
     __syncthreads();
 
+    // apply filtering
     for (int b = 0; b < blocksInTile; b++) {
         tilePixelPosRow = threadIdx.y + b * blockDim.y;
         pixelPosRow = tileStartRow + tilePixelPosRow;
 
+        // check if the position is in the original image and not in padding
         if (pixelPosCol >= tileStartCol + padding && pixelPosCol < tileEndCol - padding && pixelPosCol < (originalWidth + 2*padding) &&
             pixelPosRow >= tileStartRow + padding && pixelPosRow < tileEndRow - padding && pixelPosRow < (originalHeight + 2*padding)) {
-
             float pixValR = 0;
             float pixValG = 0;
             float pixValB = 0;
@@ -82,7 +86,7 @@ __global__ void shared_kernel_convolution_3D(float* flatPaddedImage, int origina
                     pixValB += shared_data[tilePixelPos + 2] * gaussianKernelDevice[maskIndex];
                 }
             }
-
+            // write new pixel value in output image
             outputPixelPos = (pixelPosRow * (originalWidth + 2*padding) * numChannels) + (pixelPosCol * numChannels);
             flatBlurredImage[outputPixelPos] = pixValR / scalarValue;
             flatBlurredImage[outputPixelPos + 1] = pixValG / scalarValue;
@@ -95,6 +99,7 @@ vector<vector<double>> CUDASharedKernelTest(int numExecutions, int numBlocks, co
     vector<double> meanExecutionsTimeVec;
     vector<double> meanCopyTimeVec;
     for (int blockDimension = 2; blockDimension <= numBlocks; blockDimension *= 2) {
+        // check if blockDimension > 2 * padding in order to not have zero size block
         if (blockDimension > 2 * paddedImage.getPadding()) {
             double meanExecutionsTime = 0;
             double meanCopyTime = 0;
@@ -121,6 +126,7 @@ vector<vector<double>> CUDASharedKernelTest(int numExecutions, int numBlocks, co
                 const int blockWidth = tileWidth - 2 * padding;
                 const int blockHeight = tileHeight - 2 * padding;
 
+                // allocate host memory
                 checkCudaShared(cudaMallocHost((void **) &flatPaddedImage, sizeof(float) * paddedSize));
                 checkCudaShared(cudaMallocHost((void **) &flatBlurredImage, sizeof(float) * paddedSize));
                 checkCudaShared(cudaMallocHost((void **) &gaussianKernel, sizeof(float) * max_kernel_size));
@@ -128,6 +134,7 @@ vector<vector<double>> CUDASharedKernelTest(int numExecutions, int numBlocks, co
                 flatPaddedImage = paddedImage.getFlatPaddedImage();
                 float *gaussianKernel_temp = kernel.getFlatKernel();
 
+                // initialize gaussianKernel
                 for (int i = 0; i < max_kernel_size; i++) {
                     if (i < kernelSize)
                         gaussianKernel[i] = gaussianKernel_temp[i];
@@ -135,12 +142,12 @@ vector<vector<double>> CUDASharedKernelTest(int numExecutions, int numBlocks, co
                         gaussianKernel[i] = 0;
                 }
 
-                //allocate device memory
+                // allocate device memory
                 auto startCopy = chrono::system_clock::now();
                 checkCudaShared(cudaMalloc((void **) &flatPaddedImageDevice, sizeof(float) * paddedSize));
                 checkCudaShared(cudaMalloc((void **) &flatBlurredImageDevice, sizeof(float) * paddedSize));
 
-                //transfer data from host to device memory
+                // transfer data from host to device memory
                 checkCudaShared(cudaMemcpy(flatPaddedImageDevice, flatPaddedImage, sizeof(float) * paddedSize,
                                            cudaMemcpyHostToDevice));
                 checkCudaShared(cudaMemcpy(flatBlurredImageDevice, flatBlurredImage, sizeof(float) * paddedSize,
@@ -153,12 +160,16 @@ vector<vector<double>> CUDASharedKernelTest(int numExecutions, int numBlocks, co
                 auto copyTime = chrono::duration_cast<chrono::microseconds>(endCopy);
                 meanCopyTime += (double) copyTime.count();
 
+                // define DimGrid and DimBlock
                 dim3 DimGrid((int) ceil((float) (originalWidth + (padding * 2)) / (float) blockWidth),
                              (int) ceil((float) (originalHeight + (padding * 2)) / (float) blockHeight));
                 dim3 DimBlock(tileWidth, tileHeight);
+
+                // define sharedMemorySize
                 int sharedMemorySize = tileWidth * tileHeight * numChannels * sizeof(float);
 
                 auto start = std::chrono::system_clock::now();
+                // start shared convolution
                 shared_kernel_convolution_3D<<<DimGrid, DimBlock, sharedMemorySize>>>(flatPaddedImageDevice,
                                                                                       originalWidth, originalHeight,
                                                                                       numChannels, padding,
@@ -186,6 +197,7 @@ vector<vector<double>> CUDASharedKernelTest(int numExecutions, int numBlocks, co
                 checkCudaShared(cudaFree(flatPaddedImageDevice));
                 checkCudaShared(cudaFree(flatBlurredImageDevice));
 
+                // free host memory
                 cudaFreeHost(flatPaddedImage);
                 cudaFreeHost(flatBlurredImage);
                 cudaFreeHost(gaussianKernel);

@@ -13,16 +13,19 @@ cudaError_t checkCudaGlobal(cudaError_t result){
 }
 
 __global__ void global_kernel_convolution_3D(float* flatPaddedImage, int originalWidth, int originalHeight, int numChannels, int padding, float* flatBlurredImage, float* gaussianKernel, int kernelDim, float scalarValue) {
+    // set indices
     unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned int maskIndex;
     unsigned int pixelPos;
     unsigned int outputPixelPos;
+
+    // check if the position is in the original image and not in padding
     if (x > 1 && x < (originalWidth + padding) && y > 1 && y < (originalHeight + padding)) {
+        // apply filtering
         float pixValR = 0;
         float pixValG = 0;
         float pixValB = 0;
-
         for(int k = -padding; k < kernelDim - padding; k++) {
             for(int l = -padding; l < kernelDim - padding; l++) {
                 pixelPos = ((y + k) * (originalWidth + 2*padding) * numChannels) + ((x + l) * numChannels);
@@ -32,7 +35,7 @@ __global__ void global_kernel_convolution_3D(float* flatPaddedImage, int origina
                 pixValB += flatPaddedImage[pixelPos + 2] * gaussianKernel[maskIndex];
             }
         }
-        // Write our new pixel value out
+        // write new pixel value in output image
         outputPixelPos = (y * (originalWidth + 2*padding) * numChannels) + (x * numChannels);
         flatBlurredImage[outputPixelPos] = pixValR / scalarValue;
         flatBlurredImage[outputPixelPos + 1] = pixValG / scalarValue;
@@ -64,6 +67,7 @@ vector<vector<double>> CUDAGlobalKernelTest(int numExecutions, int numBlocks, co
             int kernelSize = kernel.getKernelSize();
             float scalarValue = kernel.getScalarValue();
 
+            // allocate host memory
             checkCudaGlobal(cudaMallocHost((void **) &flatPaddedImage, sizeof(float) * paddedSize));
             checkCudaGlobal(cudaMallocHost((void **) &flatBlurredImage, sizeof(float) * paddedSize));
             checkCudaGlobal(cudaMallocHost((void **) &gaussianKernel, sizeof(float) * kernelSize));
@@ -71,13 +75,13 @@ vector<vector<double>> CUDAGlobalKernelTest(int numExecutions, int numBlocks, co
             flatPaddedImage = paddedImage.getFlatPaddedImage();
             gaussianKernel = kernel.getFlatKernel();
 
-            //allocate device memory
+            // allocate device memory
             auto startCopy = chrono::system_clock::now();
             checkCudaGlobal(cudaMalloc((void **) &flatPaddedImage_device, sizeof(float) * paddedSize));
             checkCudaGlobal(cudaMalloc((void **) &flatBlurredImage_device, sizeof(float) * paddedSize));
             checkCudaGlobal(cudaMalloc((void **) &gaussianKernel_device, sizeof(float) * kernelSize));
 
-            //transfer data from host to device memory
+            // transfer data from host to device memory
             checkCudaGlobal(cudaMemcpy(flatPaddedImage_device, flatPaddedImage, sizeof(float) * paddedSize,
                                  cudaMemcpyHostToDevice));
             checkCudaGlobal(cudaMemcpy(flatBlurredImage_device, flatBlurredImage, sizeof(float) * paddedSize,
@@ -90,11 +94,13 @@ vector<vector<double>> CUDAGlobalKernelTest(int numExecutions, int numBlocks, co
             auto copyTime = chrono::duration_cast<chrono::microseconds>(endCopy);
             meanCopyTime += (double)copyTime.count();
 
+            // define DimGrid and DimBlock
             dim3 DimGrid((int) ceil((float) (originalWidth + (padding * 2)) / (float) blockDimension),
                          (int) ceil((float) (originalHeight + (padding * 2)) / (float) blockDimension));
             dim3 DimBlock(blockDimension, blockDimension);
 
             auto start = std::chrono::system_clock::now();
+            // start global convolution
             global_kernel_convolution_3D<<<DimGrid, DimBlock>>>(flatPaddedImage_device, originalWidth, originalHeight,
                                                                   numChannels,
                                                                   padding, flatBlurredImage_device,
@@ -123,6 +129,7 @@ vector<vector<double>> CUDAGlobalKernelTest(int numExecutions, int numBlocks, co
             checkCudaGlobal(cudaFree(flatBlurredImage_device));
             checkCudaGlobal(cudaFree(gaussianKernel_device));
 
+            // free host memory
             cudaFreeHost(flatPaddedImage);
             cudaFreeHost(flatBlurredImage);
             cudaFreeHost(gaussianKernel);

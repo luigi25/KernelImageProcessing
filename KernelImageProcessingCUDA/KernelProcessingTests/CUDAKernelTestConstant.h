@@ -12,6 +12,7 @@ cudaError_t checkCudaConstant(cudaError_t result){
     return result;
 }
 
+// define gaussianKernel in constant memory
 const unsigned int MAX_KERNEL_SIZE = 25;
 __device__ __constant__ float gaussianKernel_device[MAX_KERNEL_SIZE];
 
@@ -21,11 +22,12 @@ __global__ void constant_kernel_convolution_3D(float* flatPaddedImage, int origi
     unsigned int maskIndex;
     unsigned int pixelPos;
     unsigned int outputPixelPos;
+    // check if the position is in the original image and not in padding
     if (x > 1 && x < (originalWidth + padding) && y > 1 && y < (originalHeight + padding)) {
+        // apply filtering
         float pixValR = 0;
         float pixValG = 0;
         float pixValB = 0;
-        // Get the of the surrounding box
         for(int k = -padding; k < kernelDim - padding; k++) {
             for(int l = -padding; l < kernelDim - padding; l++) {
                 pixelPos = ((y + k) * (originalWidth + 2*padding) * numChannels) + ((x + l) * numChannels);
@@ -35,7 +37,7 @@ __global__ void constant_kernel_convolution_3D(float* flatPaddedImage, int origi
                 pixValB += flatPaddedImage[pixelPos + 2] * gaussianKernel_device[maskIndex];
             }
         }
-        // Write our new pixel value out
+        // write new pixel value in output image
         outputPixelPos = (y * (originalWidth + 2*padding) * numChannels) + (x * numChannels);
         flatBlurredImage[outputPixelPos] = pixValR / scalarValue;
         flatBlurredImage[outputPixelPos + 1] = pixValG / scalarValue;
@@ -66,6 +68,7 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
             int kernelSize = kernel.getKernelSize();
             float scalarValue = kernel.getScalarValue();
 
+            // allocate host memory
             checkCudaConstant(cudaMallocHost((void **) &flatPaddedImage, sizeof(float) * paddedSize));
             checkCudaConstant(cudaMallocHost((void **) &flatBlurredImage, sizeof(float) * paddedSize));
             checkCudaConstant(cudaMallocHost((void **) &gaussianKernel, sizeof(float) * MAX_KERNEL_SIZE));
@@ -73,6 +76,7 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
             flatPaddedImage = paddedImage.getFlatPaddedImage();
             float *gaussianKernel_temp = kernel.getFlatKernel();
 
+            // initialize gaussianKernel
             for (int i = 0; i < MAX_KERNEL_SIZE; i++){
                 if (i < kernelSize)
                     gaussianKernel[i] = gaussianKernel_temp[i];
@@ -80,12 +84,12 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
                     gaussianKernel[i] = 0;
             }
 
-            //allocate device memory
+            // allocate device memory
             auto startCopy = chrono::system_clock::now();
             checkCudaConstant(cudaMalloc((void **) &flatPaddedImage_device, sizeof(float) * paddedSize));
             checkCudaConstant(cudaMalloc((void **) &flatBlurredImage_device, sizeof(float) * paddedSize));
 
-            //transfer data from host to device memory
+            // transfer data from host to device memory
             checkCudaConstant(cudaMemcpy(flatPaddedImage_device, flatPaddedImage, sizeof(float) * paddedSize,
                                  cudaMemcpyHostToDevice));
             checkCudaConstant(cudaMemcpy(flatBlurredImage_device, flatBlurredImage, sizeof(float) * paddedSize,
@@ -98,11 +102,13 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
             auto copyTime = chrono::duration_cast<chrono::microseconds>(endCopy);
             meanCopyTime += (double)copyTime.count();
 
+            // define DimGrid and DimBlock
             dim3 DimGrid((int) ceil((float) (originalWidth + (padding * 2)) / (float) blockDimension),
                          (int) ceil((float) (originalHeight + (padding * 2)) / (float) blockDimension));
             dim3 DimBlock(blockDimension, blockDimension);
 
             auto start = std::chrono::system_clock::now();
+            // start constant convolution
             constant_kernel_convolution_3D<<<DimGrid, DimBlock>>>(flatPaddedImage_device, originalWidth, originalHeight,
                                                              numChannels,
                                                              padding, flatBlurredImage_device,
@@ -125,10 +131,11 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
 //            Mat reconstructed_image = imageReconstruction(flatBlurredImage, originalWidth, originalHeight, numChannels, padding);
 //            imwrite("../results/blurred_" + to_string(blockDimension) + ".jpeg", reconstructed_image);
 
-            // Deallocate device memory
+            // deallocate device memory
             checkCudaConstant(cudaFree(flatPaddedImage_device));
             checkCudaConstant(cudaFree(flatBlurredImage_device));
 
+            // free host memory
             cudaFreeHost(flatPaddedImage);
             cudaFreeHost(flatBlurredImage);
             cudaFreeHost(gaussianKernel);
