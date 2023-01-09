@@ -26,8 +26,8 @@ struct StartEndBlockIndices{
 };
 
 vector<StartEndBlockIndices> createStartEndIndicesBlockForChunk(int nThread, int block_dim, int width, int height, int padding, int blockRows, int blockColumns, int numBlocks){
+    // set start/end indices for image pixel and each thread
     StartEndBlockIndices tempIndices;
-
     for (int r = 0; r < blockRows; r++) {
         for (int c = 0; c < blockColumns; c++) {
             if (r != blockRows - 1){
@@ -49,6 +49,7 @@ vector<StartEndBlockIndices> createStartEndIndicesBlockForChunk(int nThread, int
         tempIndices.endIndex_j.push_back(width - padding - 1);
     }
 
+    // assign blocks for each thread
     int* blocksPerThread = new int[nThread];
     for (int t = 0; t < nThread; t++){
         blocksPerThread[t] = 0;
@@ -83,6 +84,7 @@ struct kernelProcessingBlocks_args{
 };
 
 void* applyKernelBlocks(void *args) {
+    // apply filtering
     auto *arguments = (kernelProcessingBlocks_args*) args;
     int numbBlocks = (int)arguments->threadBlocksIndices.startIndex_i.size();
     StartEndBlockIndices threadBlocks = arguments->threadBlocksIndices;
@@ -117,6 +119,7 @@ vector<double> parallelPThreadTestBlocks(int numExecutions, int numThreads, cons
     vector<vector<vector<float>>> paddedImage = image.getPaddedImage();
     vector<double> meanExecutionsTimeVec;
     for(int nThread = 2; nThread <= numThreads; nThread+=2) {
+        // define blocks per rows and columns
         int blockRows;
         int blockColumns;
         if(height % block_dim == 0)
@@ -128,17 +131,19 @@ vector<double> parallelPThreadTestBlocks(int numExecutions, int numThreads, cons
         else
             blockColumns = (int)(trunc(width / block_dim)) + 1;
         int numBlocks = blockRows * blockColumns;
+        // check if numBlocks >= nThread in order to not have idle process
         if (numBlocks >= nThread) {
             double meanExecutionsTime = 0;
-//            cout << "Thread number: " << nThread << endl;
             vector<StartEndBlockIndices> threadBlockIndices = createStartEndIndicesBlockForChunk(nThread, block_dim,
                                                                                                  width, height,
                                                                                                  padding, blockRows, blockColumns, numBlocks);
             for (int execution = 0; execution < numExecutions; execution++) {
+                // create the output image
                 vector<vector<vector<float>>> blurredImage = image.getPaddedImage();
                 vector<pthread_t> threads(nThread);
                 vector<kernelProcessingBlocks_args> arguments(nThread);
                 auto start = chrono::system_clock::now();
+                // pass arguments for each thread
                 for (int t = 0; t < nThread; t++) {
                     arguments[t].paddedImage = &paddedImage;
                     arguments[t].blurredImage = &blurredImage;

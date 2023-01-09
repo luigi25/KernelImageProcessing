@@ -29,6 +29,7 @@ struct kernelProcessingRows_args{
 };
 
 void* applyKernelRows(void *args) {
+    // apply filtering
     auto *arguments = (kernelProcessingRows_args*) args;
     for (int i = arguments->startIndex_i; i <= arguments->endIndex_i; i++) {
         for (int j = arguments->padding; j < arguments->width - arguments->padding; j++) {
@@ -61,13 +62,15 @@ vector<double> parallelPThreadTestRowsDivision(int numExecutions, int numThreads
     vector<double> meanExecutionsTimeVec;
     for(int nThread = 2; nThread <= numThreads; nThread+=2) {
         double meanExecutionsTime = 0;
-//        cout << "Thread number: " << nThread << endl;
         for (int execution = 0; execution < numExecutions; execution++) {
+            // create the output image
             vector<vector<vector<float>>> blurredImage = image.getPaddedImage();
             vector<pthread_t> threads(nThread);
             vector<kernelProcessingRows_args> arguments(nThread);
+            // define chunk size
             int chunkSizeHeight = floor((height - (padding * 2)) / nThread);
             auto start = chrono::system_clock::now();
+            // pass arguments for each thread
             for (int t = 0; t < nThread - 1; t++) {
                 arguments[t].paddedImage = &paddedImage;
                 arguments[t].blurredImage = &blurredImage;

@@ -25,6 +25,7 @@ struct StartEndRowColIndices{
 };
 
 StartEndRowColIndices createStartEndIndicesRowColForChunk(int width, int height, int padding, int chuckSizeWidth, int chuckSizeHeight, int threadRows, int threadColumns){
+    // set start/end indices for image pixel and each thread
     StartEndRowColIndices rowsColsIndices;
     for (int r = 0; r < threadRows; r++) {
         for (int c = 0; c < threadColumns; c++) {
@@ -63,6 +64,7 @@ struct kernelProcessing_args{
 };
 
 void* applyKernelRowsColumns(void *args) {
+    // apply filtering
     auto *arguments = (kernelProcessing_args*) args;
     for (int i = arguments->startIndex_i; i <= arguments->endIndex_i; i++) {
         for (int j = arguments->startIndex_j; j <= arguments->endIndex_j; j++) {
@@ -93,8 +95,8 @@ vector<double> parallelPThreadTestRowsColumnsDivision(int numExecutions, int num
     vector<vector<vector<float>>> paddedImage = image.getPaddedImage();
     vector<double> meanExecutionsTimeVec;
     for(int nThread = 2; nThread <= numThreads; nThread+=2) {
-//        cout << "Thread number: " << nThread << endl;
         double meanExecutionsTime = 0;
+        // define threads per rows and columns
         int threadRows;
         int threadColumns;
         if (nThread == 2 || nThread == 4 || nThread % 4 != 0) {
@@ -105,15 +107,17 @@ vector<double> parallelPThreadTestRowsColumnsDivision(int numExecutions, int num
             threadColumns = nThread / 4;
             threadRows = nThread / threadColumns;
         }
-
+        // define chunk size
         int chuckSizeHeight = floor((height - (padding * 2)) / threadRows);
         int chuckSizeWidth = floor((width - (padding * 2)) / threadColumns);
         StartEndRowColIndices rowsColsIndices = createStartEndIndicesRowColForChunk(width, height, padding, chuckSizeWidth, chuckSizeHeight, threadRows, threadColumns);
         for (int execution = 0; execution < numExecutions; execution++) {
+            // create the output image
             vector<vector<vector<float>>> blurredImage = image.getPaddedImage();
             vector<pthread_t> threads(nThread);
             vector<kernelProcessing_args> arguments(nThread);
             auto start = chrono::system_clock::now();
+            // pass arguments for each thread
             for (int t = 0; t < nThread; t++) {
                 arguments[t].paddedImage = &paddedImage;
                 arguments[t].blurredImage = &blurredImage;

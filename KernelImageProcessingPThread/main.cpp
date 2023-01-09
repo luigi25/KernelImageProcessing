@@ -22,10 +22,13 @@ int main(){
     for(const auto& name: folder_names){
         string path = "../images/" + name + "/image.jpg";
         PaddedImage paddedImage = PaddedImage(path, padding);
+
+        // start sequential test
         cout << "Sequential Test with " << name << "p" << endl;
         double meanExecTimeSequentialTest = sequentialTest(numExecutions, paddedImage, gaussianKernel);
         cout << "Mean Sequential execution time: " << floor(meanExecTimeSequentialTest * 100.) / 100. << " microseconds\n" << endl;
 
+        // start PThread Rows Division test
         index = 0;
         cout << "PThread Test Rows Division with " << name << "p" << endl;
         vector<double> meanExecTimePThreadTestRows = parallelPThreadTestRowsDivision(numExecutions, numThreads, paddedImage, gaussianKernel);
@@ -34,6 +37,7 @@ int main(){
             index++;
         }
 
+        // start PThread Rows and Columns Division test
         index = 0;
         cout << "\nPThread Test Rows and Columns Division with " << name << "p" << endl;
         vector<double> meanExecTimePThreadTestRowsColumns = parallelPThreadTestRowsColumnsDivision(numExecutions, numThreads, paddedImage, gaussianKernel);
@@ -42,6 +46,7 @@ int main(){
             index++;
         }
 
+        // start PThread Blocks Division test
         cout << "\nPThread Test Blocks Division with " << name << "p" << endl;
         int block_dims[] = {4, 8, 16, 32, 64, 128, 256};
         for(int block_dim : block_dims){
@@ -49,6 +54,7 @@ int main(){
             cout << "Block size: " << block_dim << endl;
             vector<double> meanExecTimePThreadTestBlocks = parallelPThreadTestBlocks(numExecutions, numThreads, paddedImage, gaussianKernel, block_dim);
             for(int nThread = 2; nThread <= numThreads; nThread+=2) {
+                // check if numBlocks >= nThread in order to not have idle process
                 int width = paddedImage.getWidth();
                 int height = paddedImage.getHeight();
                 int blockRows;

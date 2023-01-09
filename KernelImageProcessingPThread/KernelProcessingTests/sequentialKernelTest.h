@@ -22,8 +22,10 @@ double sequentialTest(int numExecutions, const PaddedImage& image, AbstractKerne
     int height = image.getHeight();
     vector<vector<vector<float>>> paddedImage = image.getPaddedImage();
     for (int execution = 0; execution < numExecutions; execution++) {
+        // create the output image
         vector<vector<vector<float>>> blurredImage = paddedImage;
         auto start = chrono::system_clock::now();
+        // start filtering
         for (int i = padding; i < height - padding; i++) {
             for (int j = padding; j < width - padding; j++) {
                 float newValueR = 0;
