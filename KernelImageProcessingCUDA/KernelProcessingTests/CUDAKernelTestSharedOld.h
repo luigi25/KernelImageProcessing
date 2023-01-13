@@ -13,11 +13,15 @@ cudaError_t checkCudaShared(cudaError_t result){
 }
 
 // define gaussianKernel in constant memory
-const unsigned int max_kernel_size = 25;
-__device__ __constant__ float gaussianKernelDevice[max_kernel_size];
+#define MASK_WIDTH 5
+#define BLOCK_WIDTH 32
+
+__device__ __constant__ float gaussianKernelDevice[MASK_WIDTH * MASK_WIDTH];
 
 __global__ void shared_kernel_convolution_3D(float* flatPaddedImage, int originalWidth, int originalHeight, int numChannels, int padding, float* flatBlurredImage, int kernelDim, float scalarValue) {
-    extern __shared__ float shared_data[];
+    // 3 = numChannels
+    const int size = BLOCK_WIDTH * BLOCK_WIDTH * 3;
+    __shared__ float shared_data[size];
 
     // define width, height for block and tile
     unsigned int blockWidth = blockDim.x - (2*padding);
@@ -85,120 +89,94 @@ __global__ void shared_kernel_convolution_3D(float* flatPaddedImage, int origina
     }
 }
 
-vector<vector<double>> CUDASharedKernelTest(int numExecutions, int numBlocks, const FlatPaddedImage& paddedImage, AbstractKernel& kernel) {
+vector<double> CUDASharedKernelTest(int numExecutions, int numBlocks, const FlatPaddedImage& paddedImage, AbstractKernel& kernel) {
     vector<double> meanExecutionsTimeVec;
-    vector<double> meanCopyTimeVec;
-    for (int blockDimension = 2; blockDimension <= numBlocks; blockDimension *= 2) {
-        // check if blockDimension > 2 * padding in order to not have zero size block
-        if (blockDimension > 2 * paddedImage.getPadding()) {
-            double meanExecutionsTime = 0;
-            double meanCopyTime = 0;
-            for (int execution = 0; execution < numExecutions; execution++) {
-                float *flatPaddedImage;
-                float *flatPaddedImageDevice;
+    double meanExecutionsTime = 0;
+    for (int execution = 0; execution < numExecutions; execution++) {
+        float *flatPaddedImage;
+        float *flatPaddedImageDevice;
 
-                int originalWidth = paddedImage.getOriginalWidth();
-                int originalHeight = paddedImage.getOriginalHeight();
-                int numChannels = paddedImage.getNumChannels();
-                int padding = paddedImage.getPadding();
-                int paddedSize = (originalWidth + (padding * 2)) * (originalHeight + (padding * 2)) * numChannels;
-                float *flatBlurredImage;
-                float *flatBlurredImageDevice;
+        int originalWidth = paddedImage.getOriginalWidth();
+        int originalHeight = paddedImage.getOriginalHeight();
+        int numChannels = paddedImage.getNumChannels();
+        int padding = paddedImage.getPadding();
+        int paddedSize = (originalWidth + (padding * 2)) * (originalHeight + (padding * 2)) * numChannels;
+        float *flatBlurredImage;
+        float *flatBlurredImageDevice;
 
-                float gaussianKernel[max_kernel_size];
-                int kernelDim = kernel.getKernelDimension();
-                int kernelSize = kernel.getKernelSize();
-                float scalarValue = kernel.getScalarValue();
+        float gaussianKernel[MASK_WIDTH * MASK_WIDTH];
+        int kernelDim = kernel.getKernelDimension();
+        int kernelSize = kernel.getKernelSize();
+        float scalarValue = kernel.getScalarValue();
 
-                const int tileWidth = blockDimension;
-                const int tileHeight = blockDimension;
+        const int tileWidth = BLOCK_WIDTH;
+        const int tileHeight = BLOCK_WIDTH;
 
-                const int blockWidth = tileWidth - 2 * padding;
-                const int blockHeight = tileHeight - 2 * padding;
+        const int blockWidth = tileWidth - 2 * padding;
+        const int blockHeight = tileHeight - 2 * padding;
 
-                // allocate host memory
-                checkCudaShared(cudaMallocHost((void **) &flatPaddedImage, sizeof(float) * paddedSize));
-                checkCudaShared(cudaMallocHost((void **) &flatBlurredImage, sizeof(float) * paddedSize));
-                checkCudaShared(cudaMallocHost((void **) &gaussianKernel, sizeof(float) * max_kernel_size));
+        // allocate host memory
+        checkCudaShared(cudaMallocHost((void **) &flatPaddedImage, sizeof(float) * paddedSize));
+        checkCudaShared(cudaMallocHost((void **) &flatBlurredImage, sizeof(float) * paddedSize));
+        checkCudaShared(cudaMallocHost((void **) &gaussianKernel, sizeof(float) * MASK_WIDTH * MASK_WIDTH));
 
-                flatPaddedImage = paddedImage.getFlatPaddedImage();
-                float *gaussianKernel_temp = kernel.getFlatKernel();
+        flatPaddedImage = paddedImage.getFlatPaddedImage();
+        float *gaussianKernel_temp = kernel.getFlatKernel();
 
-                // initialize gaussianKernel
-                for (int i = 0; i < max_kernel_size; i++) {
-                    if (i < kernelSize)
-                        gaussianKernel[i] = gaussianKernel_temp[i];
-                    else
-                        gaussianKernel[i] = 0;
-                }
-
-                // allocate device memory
-                auto startCopy = chrono::system_clock::now();
-                checkCudaShared(cudaMalloc((void **) &flatPaddedImageDevice, sizeof(float) * paddedSize));
-                checkCudaShared(cudaMalloc((void **) &flatBlurredImageDevice, sizeof(float) * paddedSize));
-
-                // transfer data from host to device memory
-                checkCudaShared(cudaMemcpy(flatPaddedImageDevice, flatPaddedImage, sizeof(float) * paddedSize,
-                                           cudaMemcpyHostToDevice));
-                checkCudaShared(cudaMemcpy(flatBlurredImageDevice, flatBlurredImage, sizeof(float) * paddedSize,
-                                           cudaMemcpyHostToDevice));
-                checkCudaShared(
-                        cudaMemcpyToSymbol(gaussianKernelDevice, gaussianKernel, sizeof(float) * max_kernel_size, 0,
-                                           cudaMemcpyHostToDevice));
-                chrono::duration<double> endCopy{};
-                endCopy = chrono::system_clock::now() - startCopy;
-                auto copyTime = chrono::duration_cast<chrono::microseconds>(endCopy);
-                meanCopyTime += (double) copyTime.count();
-
-                // define DimGrid and DimBlock
-                dim3 DimGrid((int) ceil((float) (originalWidth + (padding * 2)) / (float) blockWidth),
-                             (int) ceil((float) (originalHeight + (padding * 2)) / (float) blockHeight));
-                dim3 DimBlock(tileWidth, tileHeight);
-
-                // define shared memory size
-                int sharedMemorySize = tileWidth * tileHeight * numChannels * sizeof(float);
-
-                auto start = std::chrono::system_clock::now();
-                // start shared convolution
-                shared_kernel_convolution_3D<<<DimGrid, DimBlock, sharedMemorySize>>>(flatPaddedImageDevice,
-                                                                                      originalWidth, originalHeight,
-                                                                                      numChannels, padding,
-                                                                                      flatBlurredImageDevice, kernelDim,
-                                                                                      scalarValue);
-                cudaDeviceSynchronize();
-
-                chrono::duration<double> executionTime{};
-                executionTime = chrono::system_clock::now() - start;
-                auto executionTimeMicroseconds = chrono::duration_cast<chrono::microseconds>(executionTime);
-                meanExecutionsTime += (double) executionTimeMicroseconds.count();
-
-                // transfer data back to host memory
-                startCopy = chrono::system_clock::now();
-                checkCudaShared(cudaMemcpy(flatBlurredImage, flatBlurredImageDevice, sizeof(float) * paddedSize,
-                                           cudaMemcpyDeviceToHost));
-                endCopy = chrono::system_clock::now() - startCopy;
-                copyTime = chrono::duration_cast<chrono::microseconds>(endCopy);
-                meanCopyTime += (double) copyTime.count();
-
-//                Mat reconstructed_image = imageReconstruction(flatBlurredImage, originalWidth, originalHeight, numChannels, padding);
-//                imwrite("../results/blurred_" + to_string(blockDimension) + ".jpeg", reconstructed_image);
-
-                // deallocate device memory
-                checkCudaShared(cudaFree(flatPaddedImageDevice));
-                checkCudaShared(cudaFree(flatBlurredImageDevice));
-
-                // free host memory
-                cudaFreeHost(flatPaddedImage);
-                cudaFreeHost(flatBlurredImage);
-                cudaFreeHost(gaussianKernel);
-                cudaDeviceReset();
-            }
-            meanExecutionsTimeVec.push_back(meanExecutionsTime / numExecutions);
-            meanCopyTimeVec.push_back(meanCopyTime / numExecutions);
+        // initialize gaussianKernel
+        for (int i = 0; i < MASK_WIDTH * MASK_WIDTH; i++) {
+            gaussianKernel[i] = gaussianKernel_temp[i];
         }
+
+        // allocate device memory
+        checkCudaShared(cudaMalloc((void **) &flatPaddedImageDevice, sizeof(float) * paddedSize));
+        checkCudaShared(cudaMalloc((void **) &flatBlurredImageDevice, sizeof(float) * paddedSize));
+
+        // transfer data from host to device memory
+        checkCudaShared(cudaMemcpy(flatPaddedImageDevice, flatPaddedImage, sizeof(float) * paddedSize,
+                                   cudaMemcpyHostToDevice));
+        checkCudaShared(cudaMemcpy(flatBlurredImageDevice, flatBlurredImage, sizeof(float) * paddedSize,
+                                   cudaMemcpyHostToDevice));
+        checkCudaShared(
+                cudaMemcpyToSymbol(gaussianKernelDevice, gaussianKernel, sizeof(float) * MASK_WIDTH * MASK_WIDTH, 0,
+                                   cudaMemcpyHostToDevice));
+
+        // define DimGrid and DimBlock
+        dim3 DimGrid((int) ceil((float) (originalWidth + (padding * 2)) / (float) blockWidth),
+                     (int) ceil((float) (originalHeight + (padding * 2)) / (float) blockHeight));
+        dim3 DimBlock(tileWidth, tileHeight);
+
+        auto start = std::chrono::system_clock::now();
+        // start shared convolution
+        shared_kernel_convolution_3D<<<DimGrid, DimBlock>>>(flatPaddedImageDevice,
+                                                                              originalWidth, originalHeight,
+                                                                              numChannels, padding,
+                                                                              flatBlurredImageDevice, kernelDim,
+                                                                              scalarValue);
+        cudaDeviceSynchronize();
+
+        chrono::duration<double> executionTime{};
+        executionTime = chrono::system_clock::now() - start;
+        auto executionTimeMicroseconds = chrono::duration_cast<chrono::microseconds>(executionTime);
+        meanExecutionsTime += (double) executionTimeMicroseconds.count();
+
+        // transfer data back to host memory
+        checkCudaShared(cudaMemcpy(flatBlurredImage, flatBlurredImageDevice, sizeof(float) * paddedSize,
+                                   cudaMemcpyDeviceToHost));
+
+//        Mat reconstructed_image = imageReconstruction(flatBlurredImage, originalWidth, originalHeight, numChannels, padding);
+//        imwrite("../results/blurred_" + to_string(BLOCK_WIDTH) + ".jpeg", reconstructed_image);
+
+        // deallocate device memory
+        checkCudaShared(cudaFree(flatPaddedImageDevice));
+        checkCudaShared(cudaFree(flatBlurredImageDevice));
+
+        // free host memory
+        cudaFreeHost(flatPaddedImage);
+        cudaFreeHost(flatBlurredImage);
+        cudaFreeHost(gaussianKernel);
+        cudaDeviceReset();
     }
-    vector<vector<double>> execTimeVec;
-    execTimeVec.push_back(meanExecutionsTimeVec);
-    execTimeVec.push_back(meanCopyTimeVec);
-    return execTimeVec;
+    meanExecutionsTimeVec.push_back(meanExecutionsTime / numExecutions);
+    return meanExecutionsTimeVec;
 }
