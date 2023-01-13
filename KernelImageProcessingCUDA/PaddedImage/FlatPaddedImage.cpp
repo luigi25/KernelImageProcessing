@@ -47,7 +47,7 @@ float* FlatPaddedImage::createFlatPaddedImage() {
     float* flatImage = new float[size];
 
     // scroll by rows
-    for(int i=0; i < paddedHeight; i++) {
+    for(int i = 0; i < paddedHeight; i++) {
         for (int j = 0; j < paddedWidth; j++) {
             flatImage[(i * paddedWidth * numChannels) + (j * numChannels)] = imageWithPadding[i][j][0];
             flatImage[(i * paddedWidth * numChannels) + (j * numChannels) + 1] = imageWithPadding[i][j][1];

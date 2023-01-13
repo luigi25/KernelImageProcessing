@@ -45,12 +45,10 @@ __global__ void constant_kernel_convolution_3D(float* flatPaddedImage, int origi
     }
 }
 
-vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, const FlatPaddedImage& paddedImage, AbstractKernel& kernel) {
+vector<double> CUDAConstantKernelTest(int numExecutions, int numBlocks, const FlatPaddedImage& paddedImage, AbstractKernel& kernel) {
     vector<double> meanExecutionsTimeVec;
-    vector<double> meanCopyTimeVec;
     for (int blockDimension = 2; blockDimension <= numBlocks; blockDimension *= 2) {
         double meanExecutionsTime = 0;
-        double meanCopyTime = 0;
         for (int execution = 0; execution < numExecutions; execution++) {
             float *flatPaddedImage;
             float *flatPaddedImage_device;
@@ -85,7 +83,6 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
             }
 
             // allocate device memory
-            auto startCopy = chrono::system_clock::now();
             checkCudaConstant(cudaMalloc((void **) &flatPaddedImage_device, sizeof(float) * paddedSize));
             checkCudaConstant(cudaMalloc((void **) &flatBlurredImage_device, sizeof(float) * paddedSize));
 
@@ -96,11 +93,6 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
                                  cudaMemcpyHostToDevice));
             checkCudaConstant(
                         cudaMemcpyToSymbol(gaussianKernel_device, gaussianKernel, sizeof(float) * MAX_KERNEL_SIZE, 0, cudaMemcpyHostToDevice));
-
-            chrono::duration<double> endCopy{};
-            endCopy = chrono::system_clock::now() - startCopy;
-            auto copyTime = chrono::duration_cast<chrono::microseconds>(endCopy);
-            meanCopyTime += (double)copyTime.count();
 
             // define DimGrid and DimBlock
             dim3 DimGrid((int) ceil((float) (originalWidth + (padding * 2)) / (float) blockDimension),
@@ -122,11 +114,7 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
             meanExecutionsTime += (double)executionTimeMicroseconds.count();
 
             // transfer data back to host memory
-            startCopy = chrono::system_clock::now();
             checkCudaConstant(cudaMemcpy(flatBlurredImage, flatBlurredImage_device, sizeof(float) * paddedSize, cudaMemcpyDeviceToHost));
-            endCopy = chrono::system_clock::now() - startCopy;
-            copyTime = chrono::duration_cast<chrono::microseconds>(endCopy);
-            meanCopyTime += (double)copyTime.count();
 
 //            Mat reconstructed_image = imageReconstruction(flatBlurredImage, originalWidth, originalHeight, numChannels, padding);
 //            imwrite("../results/blurred_" + to_string(blockDimension) + ".jpeg", reconstructed_image);
@@ -142,10 +130,6 @@ vector<vector<double>> CUDAConstantKernelTest(int numExecutions, int numBlocks, 
             cudaDeviceReset();
         }
         meanExecutionsTimeVec.push_back(meanExecutionsTime / numExecutions);
-        meanCopyTimeVec.push_back(meanCopyTime / numExecutions);
     }
-    vector<vector<double>> execTimeVec;
-    execTimeVec.push_back(meanExecutionsTimeVec);
-    execTimeVec.push_back(meanCopyTimeVec);
-    return execTimeVec;
+    return meanExecutionsTimeVec;
 }
