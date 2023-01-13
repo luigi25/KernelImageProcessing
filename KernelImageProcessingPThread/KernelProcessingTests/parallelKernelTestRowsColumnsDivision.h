@@ -85,6 +85,7 @@ void* applyKernelRowsColumns(void *args) {
     }
     return (void*)("Done!");
 }
+
 vector<double> parallelPThreadTestRowsColumnsDivision(int numExecutions, int numThreads, const PaddedImage& image, AbstractKernel& kernel){
     float** kernelMatrix = kernel.getKernel();
     float scalarValue = kernel.getScalarValue();
