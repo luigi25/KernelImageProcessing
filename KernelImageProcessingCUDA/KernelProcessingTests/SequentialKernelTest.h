@@ -11,7 +11,7 @@ void sequential_kernel_convolution_3D(float* flatPaddedImage, int originalWidth,
     // apply filtering
     for (int i = 0; i < (originalHeight + 2*padding); i++){
         for (int j = 0; j < (originalWidth + 2 * padding); j++){
-            if (j > 1 && j < (originalWidth + padding) && i > 1 && i < (originalHeight + padding)) {
+            if (j >= padding && j < (originalWidth + padding) && i >= padding && i < (originalHeight + padding)) {
                 float pixValR = 0;
                 float pixValG = 0;
                 float pixValB = 0;
