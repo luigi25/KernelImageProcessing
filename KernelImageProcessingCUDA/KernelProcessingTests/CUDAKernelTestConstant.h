@@ -23,7 +23,7 @@ __global__ void constant_kernel_convolution_3D(float* flatPaddedImage, int origi
     unsigned int pixelPos;
     unsigned int outputPixelPos;
     // check if the position is in the original image and not in padding
-    if (x > 1 && x < (originalWidth + padding) && y > 1 && y < (originalHeight + padding)) {
+    if (x >= padding && x < (originalWidth + padding) && y >= padding && y < (originalHeight + padding)) {
         // apply filtering
         float pixValR = 0;
         float pixValG = 0;
