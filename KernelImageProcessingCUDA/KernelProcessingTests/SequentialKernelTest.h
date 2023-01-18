@@ -9,29 +9,26 @@ void sequential_kernel_convolution_3D(float* flatPaddedImage, int originalWidth,
     unsigned int pixelPos;
     unsigned int outputPixelPos;
     // apply filtering
-    for (int i = 0; i < (originalHeight + 2*padding); i++){
-        for (int j = 0; j < (originalWidth + 2 * padding); j++){
-            if (j >= padding && j < (originalWidth + padding) && i >= padding && i < (originalHeight + padding)) {
-                float pixValR = 0;
-                float pixValG = 0;
-                float pixValB = 0;
+    for (int i = padding; i < (originalHeight + padding); i++){
+        for (int j = padding; j < (originalWidth + padding); j++){
+            float pixValR = 0;
+            float pixValG = 0;
+            float pixValB = 0;
+            for(int k = -padding; k < kernelDim - padding; k++) {
+                for(int l = -padding; l < kernelDim - padding; l++) {
+                    pixelPos = ((i + k) * (originalWidth + 2*padding) * numChannels) + ((j + l) * numChannels);
+                    maskIndex = (k + padding) * kernelDim + (l + padding);
+                    pixValR += flatPaddedImage[pixelPos] * gaussianKernel[maskIndex];
+                    pixValG += flatPaddedImage[pixelPos + 1] * gaussianKernel[maskIndex];
+                    pixValB += flatPaddedImage[pixelPos + 2] * gaussianKernel[maskIndex];
 
-                for(int k = -padding; k < kernelDim - padding; k++) {
-                    for(int l = -padding; l < kernelDim - padding; l++) {
-                        pixelPos = ((i + k) * (originalWidth + 2*padding) * numChannels) + ((j + l) * numChannels);
-                        maskIndex = (k + padding) * kernelDim + (l + padding);
-                        pixValR += flatPaddedImage[pixelPos] * gaussianKernel[maskIndex];
-                        pixValG += flatPaddedImage[pixelPos + 1] * gaussianKernel[maskIndex];
-                        pixValB += flatPaddedImage[pixelPos + 2] * gaussianKernel[maskIndex];
-
-                    }
                 }
-                // write new pixel value in output image
-                outputPixelPos = (i * (originalWidth + 2*padding) * numChannels) + (j * numChannels);
-                flatBlurredImage[outputPixelPos] = pixValR / scalarValue;
-                flatBlurredImage[outputPixelPos + 1] = pixValG / scalarValue;
-                flatBlurredImage[outputPixelPos + 2] = pixValB / scalarValue;
             }
+            // write new pixel value in output image
+            outputPixelPos = (i * (originalWidth + 2*padding) * numChannels) + (j * numChannels);
+            flatBlurredImage[outputPixelPos] = pixValR / scalarValue;
+            flatBlurredImage[outputPixelPos + 1] = pixValG / scalarValue;
+            flatBlurredImage[outputPixelPos + 2] = pixValB / scalarValue;
         }
     }
 }
